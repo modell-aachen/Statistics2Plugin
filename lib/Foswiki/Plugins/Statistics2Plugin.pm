@@ -48,145 +48,10 @@ sub initPlugin {
 
 #    Foswiki::Func::registerTagHandler( 'EXAMPLETAG', \&_EXAMPLETAG );
 
-    Foswiki::Func::registerRESTHandler( 'terror', \&restTerror );
     Foswiki::Func::registerRESTHandler( 'access', \&restAccess );
 
     # Plugin correctly initialized
     return 1;
-}
-
-# The function used to handle the %EXAMPLETAG{...}% macro
-# You would have one of these for each macro you want to process.
-#sub _EXAMPLETAG {
-#    my($session, $params, $topic, $web, $topicObject) = @_;
-#    # $session  - a reference to the Foswiki session object
-#    #             (you probably won't need it, but documented in Foswiki.pm)
-#    # $params=  - a reference to a Foswiki::Attrs object containing
-#    #             parameters.
-#    #             This can be used as a simple hash that maps parameter names
-#    #             to values, with _DEFAULT being the name for the default
-#    #             (unnamed) parameter.
-#    # $topic    - name of the topic in the query
-#    # $web      - name of the web in the query
-#    # $topicObject - a reference to a Foswiki::Meta object containing the
-#    #             topic the macro is being rendered in (new for foswiki 1.1.x)
-#    # Return: the result of processing the macro. This will replace the
-#    # macro call in the final text.
-#
-#    # For example, %EXAMPLETAG{'hamburger' sideorder="onions"}%
-#    # $params->{_DEFAULT} will be 'hamburger'
-#    # $params->{sideorder} will be 'onions'
-#}
-
-=begin TML
-
----++ earlyInitPlugin()
-
-This handler is called before any other handler, and before it has been
-determined if the plugin is enabled or not. Use it with great care!
-
-If it returns a non-null error string, the plugin will be disabled.
-
-=cut
-
-=begin TML
-
----++ restExample($session) -> $text
-
-This is an example of a sub to be called by the =rest= script. The parameter is:
-   * =$session= - The Foswiki object associated to this session.
-
-Additional parameters can be recovered via the query object in the $session, for example:
-
-my $query = $session->{request};
-my $web = $query->{param}->{web}[0];
-
-If your rest handler adds or replaces equivalent functionality to a standard script
-provided with Foswiki, it should set the appropriate context in its switchboard entry.
-In addition to the obvous contexts:  =view=, =diff=,  etc. the =static= context is used
-to indicate that the resulting output will be read offline, such as in a PDF,  and 
-dynamic links (edit, sorting, etc) should not be rendered.
-
-A comprehensive list of core context identifiers used by Foswiki is found in
-%SYSTEMWEB%.IfStatements#Context_identifiers. Please be careful not to
-overwrite any of these identifiers!
-
-For more information, check %SYSTEMWEB%.CommandAndCGIScripts#rest
-
-For information about handling error returns from REST handlers, see
-Foswiki:Support.Faq1
-
-*Since:* Foswiki::Plugins::VERSION 2.0
-
-=cut
-
-sub restTerror {
-   my ( $session, $subject, $verb, $response ) = @_;
-
-   my $eventsLog = $Foswiki::cfg{Log}{Dir}.'/events.log';
-
-   my $webs = $session->{request}->param( 'webs' ) || '.*';
-   my $topics = $session->{request}->param( 'topics' ) || '.*';
-
-   my $webregex = qr#^(?:$webs)$#;
-   my $topicregex = qr#^(?:$topics)$#;
-
-
-   my $d = parseEvents( $eventsLog, $webregex, $topicregex );
-   return "<html><head><title>Result</title></head><body><pre>$d</pre></body></html>";
-
-#   Foswiki::Func::saveTopic('Ost3','Report', undef, "<pre>$d</pre>");
-#   Foswiki::Func::moveTopic('Ost5','Report', undef,undef);
-
-#    $session->redirect(Foswiki::Func::getScriptUrl('Ost3', 'ExtremeStatistics', 'view'));
-}
-
-sub parseEvents {
-    my ( $eventsLog, $webregex, $topicregex ) = @_;
-
-    open ( my $file, "<", $eventsLog ) or die "Error opening $eventsLog."; # XXX
-
-    my $webtopics = {};
-    my $att = {};
-    local $_;
-    while ( <$file> ) {
-        # | 2013-10-18T07:07:30Z info | admin | viewfile | Ost3.Geheim | 1003002_ACQMM_PWS.png Firefox | 127.0.0.1 |
-        next unless $_ =~ m#\| ([^T]+).+ info \| .+ \| (.+) \| (.+) \| (.+) \| \d+\.\d+\.\d+\.\d+ \|#;
-        my ( $time, $mode, $webtopic, $what ) = ( $1, $2, $3, $4 );
-        my ( $web, $topic ) = Foswiki::Func::normalizeWebTopicName( '', $webtopic );
-        next unless $web =~ m#$webregex#;
-        next unless $topic =~ m#$topicregex#;
-        if ( $mode eq 'view' ) {
-            doYouRememberTheTime( $webtopics, $webtopic, $time );
-        }
-        elsif ( $mode eq 'viewfile' ) {
-            next unless $what =~ m#^([^\s]+)#;
-            my $attachment = "$webtopic/$1";
-            doYouRememberTheTime( $att, $attachment, $time );
-        }
-    }
-
-    use Data::Dumper; return Dumper($webtopics)."\n----\n".Dumper($att);
-}
-
-sub doYouRememberTheTime {
-    my ( $where, $what, $time ) = @_;
-
-    return unless $time =~ m#^(\d{4}-\d{2})-\d{2}#;
-    my $ym = $1;
-
-    $where->{$what} = {} unless $where->{$what};
-
-    if ( $where->{$what}->{$time} ) {
-        $where->{$what}->{$time}++;
-    } else {
-        $where->{$what}->{$time} = 1;
-    }
-    if ( $where->{$what}->{$ym} ) {
-        $where->{$what}->{$ym}++;
-    } else {
-        $where->{$what}->{$ym} = 1;
-    }
 }
 
 sub restAccess {
@@ -232,8 +97,9 @@ sub restAccess {
 
     my $skipWebs = $session->{request}->param( 'skipWebs' );
     my $skipTopics = $session->{request}->param( 'skipTopics' );
+    my $skipUsers = $session->{request}->param( 'skipUsers' );
 
-    my $logData = _collectLogData( $session, $start, $end, $view_slack, $edit_slack, $skipWebs, $skipTopics );
+    my $logData = _collectLogData( $session, $start, $end, $view_slack, $edit_slack, $skipWebs, $skipTopics, $skipUsers );
 
     $logData->{statSavesCombinedRef} = {};
     foreach my $eachweb (keys $logData->{statSavesRef}) {
@@ -249,6 +115,8 @@ sub restAccess {
 
     my @view_top = [];
     my @edit_top = [];
+    my @editors_top = [];
+    my @viewers_top = [];
     my $view_omni = {};
     my $edit_omni = {};
     foreach my $eachweb (keys %{$logData->{viewRef}}) {
@@ -266,10 +134,16 @@ sub restAccess {
 #   }
     @view_top = sort {$view_omni->{$b} <=> $view_omni->{$a}} keys $view_omni;
     @edit_top = sort {$edit_omni->{$b} <=> $edit_omni->{$a}} keys $edit_omni;
+    @editors_top = sort {$logData->{editors}->{$b} <=> $logData->{editors}->{$a}} keys $logData->{editors};
+    @viewers_top = sort {$logData->{viewers}->{$b} <=> $logData->{viewers}->{$a}} keys $logData->{viewers};
     @view_top = @view_top[0 .. $topN-1];
     $logData->{view_top} = \@view_top;
     @edit_top = @edit_top[0 .. $topN-1];
     $logData->{edit_top} = \@edit_top;
+    @editors_top = @editors_top[0 .. $topN-1];
+    $logData->{editors_top} = \@editors_top;
+    @viewers_top = @viewers_top[0 .. $topN-1];
+    $logData->{viewers_top} = \@viewers_top;
 
 #   return $logData->{view_top};
     my $view_csv = '';
@@ -284,20 +158,58 @@ sub restAccess {
         $edit_csv .= "$eachtop,$edit_omni->{$eachtop}\n";
     }
 
-    return "<html><head><title>Result</title></head><body><h1>Looking at $startYear/$startMonth/01 - $endYear/$endMonth/01</h1><h2>View top $topN:</h1><pre>$view_csv</pre><hr /><h2>Edit top $topN:</h1><pre>$edit_csv</pre></body></html>";
+    my $viewers_csv = '';
+    foreach my $eachtop (@{$logData->{viewers_top}}) {
+        next unless $logData->{viewers}->{$eachtop}; # == less than topN entries
+        $viewers_csv .= "$eachtop,$logData->{viewers}->{$eachtop}\n";
+    }
+
+    my $editors_csv = '';
+    foreach my $eachtop (@{$logData->{editors_top}}) {
+        next unless $logData->{editors}->{$eachtop}; # == less than topN entries
+        $editors_csv .= "$eachtop,$logData->{editors}->{$eachtop}\n";
+    }
+
+    return "<html><head><title>Result</title></head><body><h1>Looking at $startYear/$startMonth/01 - $endYear/$endMonth/01</h1><h2>View top $topN:</h1><pre>$view_csv</pre><hr /><h2>Edit top $topN:</h2><pre>$edit_csv</pre><hr /><h2>Top $topN viewers:</h2><pre>$viewers_csv</pre><hr /><h2>Top $topN editors:</h2><pre>$editors_csv</pre></body></html>";
     return '<html><head><title>Result</title></head><body><pre>'.Dumper($logData).'</pre></body></html>';
 }
 
+sub _regexify {
+    my ( $string, $containsGroups ) = @_;
+
+    if($string) {
+        $string =~ s#^\s+##;
+        $string =~ s#\s+$##;
+        my @allEntries = split(/\s*,\s*/, $string);
+        if($containsGroups) {
+            my $members = {};
+            foreach my $entry ( @allEntries ) {
+                if(Foswiki::Func::isGroup($entry)) {
+                    my $i = Foswiki::Func::eachGroupMember($entry);
+                    while($i->hasNext()) {
+                        my $user = $i->next();
+                        $user = Foswiki::Func::getWikiUserName($user);
+                        $members->{$user} = 1;
+                    }
+                } else {
+                    $entry = Foswiki::Func::getWikiUserName($entry);
+                    $members->{$entry} = 1;
+                }
+            }
+            @allEntries = keys %$members;
+        }
+        $string = join('|', @allEntries); # XXX \Q..\E
+        return qr#^(?:$string)(?:/|$)# if $string;
+    }
+    return undef;
+}
 
 sub _collectLogData {
-    my ( $session, $start, $end, $viewSlack, $saveSlack, $skipWebs, $skipTopics ) = @_;
+    my ( $session, $start, $end, $viewSlack, $saveSlack, $skipWebs, $skipTopics, $skipUsers ) = @_;
 
-    my $skipWebRegex;
-    if($skipWebs) {
-        my @allWebs = split(/\s*,\s*/, $skipWebs);
-        $skipWebs =~ join('|', @allWebs); # XXX \Q..\E
-        $skipWebRegex = qr#^(?:$skipWebs)(?:/|$)#;
-    }
+    my $skipWebRegex = _regexify($skipWebs);
+    my $skipTopicRegex = _regexify($skipTopics);
+    my $skipUserRegex = _regexify($skipUsers, 1);
 
     $viewSlack ||= 60*60; # 1h
     $saveSlack ||= 60*60; # 1h
@@ -367,11 +279,12 @@ sub _collectLogData {
             my $webName   = $1;
             my $topicName = $2;
             next if $skipWebRegex && $webName =~ m#$skipWebRegex#;
+            next if $skipTopicRegex && $topicName =~ m#$skipTopicRegex#;
 
             if ( $opName eq 'view' ) {
-                next if ( $topicName eq 'WebRss' );
-                next if ( $topicName eq 'WebAtom' );
                 my $user = $users->webDotWikiName($logFileUserName);
+                next if $skipUserRegex && $user =~ m#$skipUserRegex#;
+
                 my $lastView = $lastTime->{view}->{$webName}{$topicName}{$user};
                 next if $lastView && ($date - $lastView < $viewSlack);
 
@@ -383,15 +296,17 @@ sub _collectLogData {
                     $data->{statViewsSubwebsRef}->{$subWeb}++;
                 }
 
-                # log topic access
+                # log topic access; count views
                 $lastTime->{view}->{$webName}{$topicName}{$user} = $date;
                 unless ( $notes && $notes =~ /\(not exist\)/ ) {
                     $data->{viewRef}->{$webName}{$topicName}++;
+                    $data->{viewers}->{$user}++;
                 }
-
             }
             elsif ( $opName eq 'save' ) {
                 my $user = $users->webDotWikiName($logFileUserName);
+                next if $skipUserRegex && $user =~ m#$skipUserRegex#;
+
                 my $lastSave = $lastTime->{save}->{$webName}{$topicName}{$user};
                 next if $lastSave && ($date - $lastSave < $saveSlack);
 
@@ -408,6 +323,9 @@ sub _collectLogData {
                 # log topic save
                 $data->{saveRef}->{$webName}{$topicName}++;
                 $lastTime->{save}->{$webName}{$topicName}{$user} = $date;
+
+                # log saves per user
+                $data->{editors}->{$user}++;
             }
             elsif ( $opName eq 'upload' ) {
                 $data->{statUploadsRef}->{$webName}++;
