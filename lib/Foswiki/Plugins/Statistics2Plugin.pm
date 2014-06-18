@@ -102,13 +102,13 @@ sub restAccess {
     my $logData = _collectLogData( $session, $start, $end, $view_slack, $edit_slack, $skipWebs, $skipTopics, $skipUsers );
 
     $logData->{statSavesCombinedRef} = {};
-    foreach my $eachweb (keys $logData->{statSavesRef}) {
+    foreach my $eachweb (keys %{$logData->{statSavesRef}}) {
         my $sub = $logData->{statSavesSubwebsRef}{$eachweb} || 0;
         $logData->{statSavesCombinedRef}{$eachweb} = $logData->{statSavesRef}{$eachweb} + $sub;
     }
 
     $logData->{statViewsCombinedRef} = {};
-    foreach my $eachweb (keys $logData->{statViewsRef}) {
+    foreach my $eachweb (keys %{$logData->{statViewsRef}}) {
         my $sub = $logData->{statViewsSubwebsRef}{$eachweb} || 0;
         $logData->{statViewsCombinedRef}{$eachweb} = $logData->{statViewsRef}{$eachweb} + $sub;
     }
@@ -132,10 +132,10 @@ sub restAccess {
 #   foreach my $eachweb ($logData->{editRef}) {
 #       push(@edit_top, map { "$eachweb/$_" => $logData->{editRef}{$eachweb}{$_} } $logData->{editRef}{$eachweb} );
 #   }
-    @view_top = sort {$view_omni->{$b} <=> $view_omni->{$a}} keys $view_omni;
-    @edit_top = sort {$edit_omni->{$b} <=> $edit_omni->{$a}} keys $edit_omni;
-    @editors_top = sort {$logData->{editors}->{$b} <=> $logData->{editors}->{$a}} keys $logData->{editors};
-    @viewers_top = sort {$logData->{viewers}->{$b} <=> $logData->{viewers}->{$a}} keys $logData->{viewers};
+    @view_top = sort {$view_omni->{$b} <=> $view_omni->{$a}} keys %$view_omni;
+    @edit_top = sort {$edit_omni->{$b} <=> $edit_omni->{$a}} keys %$edit_omni;
+    @editors_top = sort {$logData->{editors}->{$b} <=> $logData->{editors}->{$a}} keys %{$logData->{editors}};
+    @viewers_top = sort {$logData->{viewers}->{$b} <=> $logData->{viewers}->{$a}} keys %{$logData->{viewers}};
     @view_top = @view_top[0 .. $topN-1];
     $logData->{view_top} = \@view_top;
     @edit_top = @edit_top[0 .. $topN-1];
