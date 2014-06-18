@@ -199,7 +199,9 @@ sub _regexify {
             @allEntries = keys %$members;
         }
         $string = join('|', @allEntries); # XXX \Q..\E
-        return qr#^(?:$string)(?:/|$)# if $string;
+        return undef unless $string;
+        return qr#^(?:$string)$# if $containsGroups;
+        return qr#^(?:$string)(?:/|$)#;
     }
     return undef;
 }
