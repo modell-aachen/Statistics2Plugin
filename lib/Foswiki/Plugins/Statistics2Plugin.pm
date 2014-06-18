@@ -148,25 +148,25 @@ sub restAccess {
 #   return $logData->{view_top};
     my $view_csv = '';
     foreach my $eachtop (@{$logData->{view_top}}) {
-        next unless $view_omni->{$eachtop}; # == (does not exist) or less than topN entries
+        next unless $eachtop && $view_omni->{$eachtop}; # == (does not exist) or less than topN entries
         $view_csv .= "$eachtop,$view_omni->{$eachtop}\n";
     }
 
     my $edit_csv = '';
     foreach my $eachtop (@{$logData->{edit_top}}) {
-        next unless $edit_omni->{$eachtop}; # == less than topN entries
+        next unless $eachtop && $edit_omni->{$eachtop}; # == less than topN entries
         $edit_csv .= "$eachtop,$edit_omni->{$eachtop}\n";
     }
 
     my $viewers_csv = '';
     foreach my $eachtop (@{$logData->{viewers_top}}) {
-        next unless $logData->{viewers}->{$eachtop}; # == less than topN entries
+        next unless $eachtop && $logData->{viewers}->{$eachtop}; # == less than topN entries
         $viewers_csv .= "$eachtop,$logData->{viewers}->{$eachtop}\n";
     }
 
     my $editors_csv = '';
     foreach my $eachtop (@{$logData->{editors_top}}) {
-        next unless $logData->{editors}->{$eachtop}; # == less than topN entries
+        next unless $eachtop && $logData->{editors}->{$eachtop}; # == less than topN entries
         $editors_csv .= "$eachtop,$logData->{editors}->{$eachtop}\n";
     }
 
