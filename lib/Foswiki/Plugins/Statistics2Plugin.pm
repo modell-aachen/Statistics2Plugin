@@ -342,18 +342,23 @@ sub _collectLogData {
 /moved to ($Foswiki::regex{webNameRegex})\.($Foswiki::regex{wikiWordRegex}|$Foswiki::regex{abbrevRegex}|\w+)/o;
                 my $newTopicWeb  = $1;
                 my $newTopicName = $2;
+                my $skipNewWeb = ($skipWebRegex && $newTopicWeb =~ m#$skipWebRegex#)?1:0;
 
                 # Get number of views for old topic this month (may be zero)
                 my $oldViews = $data->{viewRef}->{$webName}{$topicName} || 0;
 
                 # Transfer views from old to new topic
-                $data->{viewRef}->{$newTopicWeb}{$newTopicName} = $oldViews;
+                unless($skipNewWeb) {
+                    $data->{viewRef}->{$newTopicWeb}{$newTopicName} = $oldViews;
+                }
                 delete $data->{viewRef}->{$webName}{$topicName};
 
                 # Transfer views from old to new web
                 if ( $newTopicWeb ne $webName ) {
                     $data->{statViewsRef}{$webName} -= $oldViews;
-                    $data->{statViewsRef}{$newTopicWeb} += $oldViews;
+                    unless($skipNewWeb) {
+                        $data->{statViewsRef}{$newTopicWeb} += $oldViews;
+                    }
                 }
             }
         }
