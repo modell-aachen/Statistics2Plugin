@@ -20,6 +20,8 @@ use Foswiki::Time                   ();
 
 use Foswiki::Contrib::JsonRpcContrib ();
 
+use Foswiki::Plugins::Statistics2Plugin::Result();
+
 our $VERSION = "0.0";
 
 use constant DEBUG => 0;
@@ -105,6 +107,11 @@ sub jsonAccess {
 
     my $logData = _collectLogData( $session, $start, $end, $view_slack, $edit_slack, $skipWebs, $skipTopics, $skipUsers );
 
+    $logData->{topEditRange} = $topN;
+    $logData->{topViewRange} = $topN;
+    $logData->{topEditorsRange} = $topN;
+    $logData->{topViewersRange} = $topN;
+
     $logData->{statSavesCombinedRef} = {};
     foreach my $eachweb (keys %{$logData->{statSavesRef}}) {
         my $sub = $logData->{statSavesSubwebsRef}{$eachweb} || 0;
@@ -133,48 +140,25 @@ sub jsonAccess {
             $edit_omni->{"$eachweb/$eachtopic"} = $logData->{saveRef}{$eachweb}{$eachtopic};
         }
     }
-#   foreach my $eachweb ($logData->{editRef}) {
-#       push(@edit_top, map { "$eachweb/$_" => $logData->{editRef}{$eachweb}{$_} } $logData->{editRef}{$eachweb} );
-#   }
     @view_top = sort {$view_omni->{$b} <=> $view_omni->{$a}} keys %$view_omni;
     @edit_top = sort {$edit_omni->{$b} <=> $edit_omni->{$a}} keys %$edit_omni;
     @editors_top = sort {$logData->{editors}->{$b} <=> $logData->{editors}->{$a}} keys %{$logData->{editors}};
     @viewers_top = sort {$logData->{viewers}->{$b} <=> $logData->{viewers}->{$a}} keys %{$logData->{viewers}};
-    @view_top = @view_top[0 .. $topN-1];
+    @view_top = @view_top[0 .. max($topN, scalar @view_top)-1];
     $logData->{view_top} = \@view_top;
-    @edit_top = @edit_top[0 .. $topN-1];
+    @edit_top = @edit_top[0 .. max($topN, scalar @edit_top)-1];
     $logData->{edit_top} = \@edit_top;
-    @editors_top = @editors_top[0 .. $topN-1];
+    @editors_top = @editors_top[0 .. max($topN, scalar @editors_top)-1];
     $logData->{editors_top} = \@editors_top;
-    @viewers_top = @viewers_top[0 .. $topN-1];
+    @viewers_top = @viewers_top[0 .. max($topN, scalar @viewers_top)-1];
     $logData->{viewers_top} = \@viewers_top;
 
-#   return $logData->{view_top};
-    my $view_csv = '';
-    foreach my $eachtop (@{$logData->{view_top}}) {
-        next unless $eachtop && $view_omni->{$eachtop}; # == (does not exist) or less than topN entries
-        $view_csv .= "$eachtop,$view_omni->{$eachtop}\n";
-    }
+    return Foswiki::Plugins::Statistics2Plugin::Result->new($logData);
+}
 
-    my $edit_csv = '';
-    foreach my $eachtop (@{$logData->{edit_top}}) {
-        next unless $eachtop && $edit_omni->{$eachtop}; # == less than topN entries
-        $edit_csv .= "$eachtop,$edit_omni->{$eachtop}\n";
-    }
-
-    my $viewers_csv = '';
-    foreach my $eachtop (@{$logData->{viewers_top}}) {
-        next unless $eachtop && $logData->{viewers}->{$eachtop}; # == less than topN entries
-        $viewers_csv .= "$eachtop,$logData->{viewers}->{$eachtop}\n";
-    }
-
-    my $editors_csv = '';
-    foreach my $eachtop (@{$logData->{editors_top}}) {
-        next unless $eachtop && $logData->{editors}->{$eachtop}; # == less than topN entries
-        $editors_csv .= "$eachtop,$logData->{editors}->{$eachtop}\n";
-    }
-
-    return "<h1>Looking at $startYear/$startMonth/01 - $endYear/$endMonth/01</h1><h2>View top $topN:</h1><pre>$view_csv</pre><hr /><h2>Edit top $topN:</h2><pre>$edit_csv</pre><hr /><h2>Top $topN viewers:</h2><pre>$viewers_csv</pre><hr /><h2>Top $topN editors:</h2><pre>$editors_csv</pre>";
+sub max {
+    my ($a, $b) = @_;
+    return ($a < $b)?$a:$b;
 }
 
 sub restAccess {
@@ -508,7 +492,7 @@ sub _collectLogData {
 __END__
 Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Author: StephanOstold
+Author: StephanOsthold
 
 Copyright (C) 2008-2013 Foswiki Contributors. Foswiki Contributors
 are listed in the AUTHORS file in the root of this distribution.
