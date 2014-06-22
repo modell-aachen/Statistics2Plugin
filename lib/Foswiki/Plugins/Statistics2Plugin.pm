@@ -149,6 +149,8 @@ sub jsonAccess {
     @viewers_top = @viewers_top[0 .. max($topN, scalar @viewers_top)-1];
     $logData->{viewers_top} = \@viewers_top;
 
+    $logData->{title} = Foswiki::Func::expandCommonVariables('%MAKETEXT{"Looking at [_1] - [_2]" args="'."$startYear/$startMonth/01,$endYear/$endMonth/01".'"}%');
+
     return Foswiki::Plugins::Statistics2Plugin::Result->new($logData);
 }
 
