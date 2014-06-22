@@ -10,7 +10,7 @@ One line description, required for extensions repository catalog.
 %TOC%
 
 ---++ Top usage
-%JQREQUIRE{"form,blockui,ui::dialog,pnotify"}%%ADDTOZONE{"script" id="statistics2plugin" text="<script type='text/javascript' src='%PUBURLPATH%/%SYSTEMWEB%/Statistics2Plugin/statistics.js'></script>"}%<div class="Statistics2Plugin">
+%JQREQUIRE{"form,blockui,ui::dialog,pnotify"}%%ADDTOZONE{"script" id="statistics2plugin" text="<script type='text/javascript' src='%PUBURLPATH%/%SYSTEMWEB%/Statistics2Plugin/statistics.js'></script>" requires="JQUERYPLUGIN::FOSWIKI"}%<div class="Statistics2Plugin">
 <form action="%SCRIPTURL{jsonrpc}%/Statistics2Plugin/access" method="post">
 | *Parameter* | *Example* | *Input* |
 | <label for="start">Start time </label> | 2014-01 | <input type="text" name="start" value="" /> |
