@@ -50,10 +50,6 @@ sub initPlugin {
         return 0;
     }
 
-#    Foswiki::Func::registerTagHandler( 'EXAMPLETAG', \&_EXAMPLETAG );
-
-    Foswiki::Func::registerRESTHandler( 'access', \&restAccess );
-
     Foswiki::Contrib::JsonRpcContrib::registerMethod( "Statistics2Plugin", "access", \&jsonAccess );
 
     # Plugin correctly initialized
@@ -159,126 +155,6 @@ sub jsonAccess {
 sub max {
     my ($a, $b) = @_;
     return ($a < $b)?$a:$b;
-}
-
-sub restAccess {
-    my ( $session, $subject, $verb, $response ) = @_;
-
-    my ( $startYear, $startMonth, $endYear, $endMonth );
-    my $start = $session->{request}->param( 'start' );
-    if($start && $start =~ m#^\s*(\d{4})\s*-\s*(\d{1,2})\s*$#) {
-        $startYear = $1;
-        $startMonth = $2;
-    }
-
-    my $end = $session->{request}->param( 'end' );
-    if($end && $end =~ m#^\s*(\d{4})\s*-\s*(\d{1,2})\s*$#) {
-        $endYear = $1;
-        $endMonth = $2;
-    }
-
-    if($endMonth && $endYear) {
-        $end = Foswiki::Time::parseTime("$endYear-$endMonth-01");
-    } else {
-        $endMonth = Foswiki::Time::formatTime(time(), '$mo');
-        $endYear = Foswiki::Time::formatTime(time(), '$year');
-        $end = Foswiki::Time::parseTime(
-            "$endYear-$endMonth-01"
-        );
-    }
-    if($startMonth && $startYear) {
-        $start = Foswiki::Time::parseTime("$startYear-$startMonth-01");
-    } else {
-        $startMonth = $endMonth;
-        $startMonth = ($startMonth + 11) % 12;
-        $startYear = $endYear;
-        $startYear-- if($startMonth == 12);
-        $start = Foswiki::Time::parseTime(
-            "$startYear-$startMonth-01"
-        );
-    }
-
-    my $topN = $session->{request}->param( 'topN' ) || 20;
-    my $view_slack = $session->{request}->param( 'view_slack' );
-    my $edit_slack = $session->{request}->param( 'edit_slack' );
-
-    my $skipWebs = $session->{request}->param( 'skipWebs' );
-    my $skipTopics = $session->{request}->param( 'skipTopics' );
-    my $skipUsers = $session->{request}->param( 'skipUsers' );
-
-    my $logData = _collectLogData( $session, $start, $end, $view_slack, $edit_slack, $skipWebs, $skipTopics, $skipUsers );
-
-    $logData->{statSavesCombinedRef} = {};
-    foreach my $eachweb (keys %{$logData->{statSavesRef}}) {
-        my $sub = $logData->{statSavesSubwebsRef}{$eachweb} || 0;
-        $logData->{statSavesCombinedRef}{$eachweb} = $logData->{statSavesRef}{$eachweb} + $sub;
-    }
-
-    $logData->{statViewsCombinedRef} = {};
-    foreach my $eachweb (keys %{$logData->{statViewsRef}}) {
-        my $sub = $logData->{statViewsSubwebsRef}{$eachweb} || 0;
-        $logData->{statViewsCombinedRef}{$eachweb} = $logData->{statViewsRef}{$eachweb} + $sub;
-    }
-
-    my @view_top = [];
-    my @edit_top = [];
-    my @editors_top = [];
-    my @viewers_top = [];
-    my $view_omni = {};
-    my $edit_omni = {};
-    foreach my $eachweb (keys %{$logData->{viewRef}}) {
-        foreach my $eachtopic (keys %{$logData->{viewRef}{$eachweb}}) {
-            $view_omni->{"$eachweb/$eachtopic"} = $logData->{viewRef}{$eachweb}{$eachtopic};
-        }
-    }
-    foreach my $eachweb (keys %{$logData->{saveRef}}) {
-        foreach my $eachtopic (keys %{$logData->{saveRef}{$eachweb}}) {
-            $edit_omni->{"$eachweb/$eachtopic"} = $logData->{saveRef}{$eachweb}{$eachtopic};
-        }
-    }
-#   foreach my $eachweb ($logData->{editRef}) {
-#       push(@edit_top, map { "$eachweb/$_" => $logData->{editRef}{$eachweb}{$_} } $logData->{editRef}{$eachweb} );
-#   }
-    @view_top = sort {$view_omni->{$b} <=> $view_omni->{$a}} keys %$view_omni;
-    @edit_top = sort {$edit_omni->{$b} <=> $edit_omni->{$a}} keys %$edit_omni;
-    @editors_top = sort {$logData->{editors}->{$b} <=> $logData->{editors}->{$a}} keys %{$logData->{editors}};
-    @viewers_top = sort {$logData->{viewers}->{$b} <=> $logData->{viewers}->{$a}} keys %{$logData->{viewers}};
-    @view_top = @view_top[0 .. $topN-1];
-    $logData->{view_top} = \@view_top;
-    @edit_top = @edit_top[0 .. $topN-1];
-    $logData->{edit_top} = \@edit_top;
-    @editors_top = @editors_top[0 .. $topN-1];
-    $logData->{editors_top} = \@editors_top;
-    @viewers_top = @viewers_top[0 .. $topN-1];
-    $logData->{viewers_top} = \@viewers_top;
-
-#   return $logData->{view_top};
-    my $view_csv = '';
-    foreach my $eachtop (@{$logData->{view_top}}) {
-        next unless $eachtop && $view_omni->{$eachtop}; # == (does not exist) or less than topN entries
-        $view_csv .= "$eachtop,$view_omni->{$eachtop}\n";
-    }
-
-    my $edit_csv = '';
-    foreach my $eachtop (@{$logData->{edit_top}}) {
-        next unless $eachtop && $edit_omni->{$eachtop}; # == less than topN entries
-        $edit_csv .= "$eachtop,$edit_omni->{$eachtop}\n";
-    }
-
-    my $viewers_csv = '';
-    foreach my $eachtop (@{$logData->{viewers_top}}) {
-        next unless $eachtop && $logData->{viewers}->{$eachtop}; # == less than topN entries
-        $viewers_csv .= "$eachtop,$logData->{viewers}->{$eachtop}\n";
-    }
-
-    my $editors_csv = '';
-    foreach my $eachtop (@{$logData->{editors_top}}) {
-        next unless $eachtop && $logData->{editors}->{$eachtop}; # == less than topN entries
-        $editors_csv .= "$eachtop,$logData->{editors}->{$eachtop}\n";
-    }
-
-    return "<html><head><title>Result</title></head><body><h1>Looking at $startYear/$startMonth/01 - $endYear/$endMonth/01</h1><h2>View top $topN:</h1><pre>$view_csv</pre><hr /><h2>Edit top $topN:</h2><pre>$edit_csv</pre><hr /><h2>Top $topN viewers:</h2><pre>$viewers_csv</pre><hr /><h2>Top $topN editors:</h2><pre>$editors_csv</pre></body></html>";
-    return '<html><head><title>Result</title></head><body><pre>'.Dumper($logData).'</pre></body></html>';
 }
 
 sub _regexify {
