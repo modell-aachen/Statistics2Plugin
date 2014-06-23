@@ -81,7 +81,7 @@ jQuery(function($) {
                 return a[1] - b[1];
             });
             var count = joined.length;
-            var median = joined[count/2][1];
+            var median = joined[Math.floor(count/2)][1];
             var bottom = joined[Math.floor(count * 10 / 100)][1];
             var upper = joined[Math.floor(count * 90 / 100)][1];
             var bin = (upper - bottom) / 8;
@@ -90,26 +90,55 @@ jQuery(function($) {
             var binNr = 0;
             var i;
             var max = -1;
+            var heightContainer = 100;
+            var widthContainer = 300;
             for(i = 0; i < joined.length; i++) {
                 if(joined[i][1] > limit) {
                     if(bars[binNr].count > max) max = bars[binNr].count;
+                    bars[binNr].end = i-1;
                     binNr++;
                     limit = (binNr + 1) * bin;
                     bars[binNr] = {count: 0, start: i};
                 }
                 bars[binNr].count++;
             }
+            bars[bars.length-1].end = bars.length - 1;
 
             var output = '<table><tbody><tr>';
             for(i = 0; i < bars.length; i++) {
-                var height = (bars[i].count * 100 / max);
-                output += '<td><div style="position: static; height: 100px;"><div style="height: ' + (100 - height) + 'px;"></div><div style="position: relative; border: 1px solid black; background-color: blue; bottom: 0px; width: 10px; height: ' + height + 'px;" class="histo nr'+i+'"></div></div></td>';
+                var height = (bars[i].count * heightContainer / max);
+                output += '<td><div style="position: static; height: '+heightContainer+'px;"><div style="height: ' + (heightContainer - height) + 'px;"></div><div style="position: relative; border: 1px solid black; background-color: blue; bottom: 0px; width: 10px; height: ' + height + 'px;" class="histo nr'+i+'"></div></div></td>';
             }
             output += '</tr><tr>';
             for(i = 0; i < bars.length; i++) {
                 output += '<td>' + bars[i].count + '</td>';
             }
             output += '</tr></tbody></table>';
+            output += '<div style="height: '+heightContainer+'px; width: '+widthContainer+'x; position: relative;" class="hcontainer">';
+            var beams = '';
+            var stretch = widthContainer / joined[joined.length - 1][1];
+            for(i = 0; i < bars.length; i++) {
+                var height = bars[i].count / joined.length / widthContainer;
+                //var height = (bars[i].count * heightContainer / max);
+                var dist = heightContainer - height;
+                var left, right;
+                if(i > 0) {
+                    left = (joined[bars[i].start][1] + joined[bars[i-1].end][1]) / 2 * stretch;
+                } else {
+                    left = 0;
+                }
+                if(i < bars.length -1) {
+                    right = (joined[bars[i].end][1] + joined[bars[i+1].start][1]) / 2 * stretch;
+                } else {
+                    right = (joined[bars[i].end][1]) * stretch;
+                }
+                //var right = joined[bars[i].end][1] * stretch;
+                //var left = joined[bars[i].start][1] * stretch;
+                var width = right - left - 1;
+                beams += '<div style="position: absolute; border: 1px solid black; background-color: yellow; height: '+height+'px; bottom: 0px; width: '+width+'px; left: '+left+'px;"></div>';
+            }
+            output += beams;
+            output += '</div>';
             showSubdialog(output, {title: result.title || ''});
         };
         $form.closest('.Statistics2Plugin').unblock();
