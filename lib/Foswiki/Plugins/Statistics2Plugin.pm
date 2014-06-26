@@ -265,6 +265,8 @@ sub _collectLogData {
         {
             my $webName   = $1;
             my $topicName = $2;
+            $webName =~ s#\.#/#g;
+            $webName =~ s#/#?#g;
             next if $skipWebRegex && $webName =~ m#$skipWebRegex#;
             next if $skipTopicRegex && $topicName =~ m#$skipTopicRegex#;
 

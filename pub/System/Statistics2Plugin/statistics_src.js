@@ -10,6 +10,79 @@ jQuery(function($) {
             ((options.title!==undefined)?(',title:\''+options.title.replace("'","\\'")+'\''):'') +
             '} '+((options.dialogClass!==undefined)?options.dialogClass:'modacAjaxDialog')+'"></div>';
     };
+    var getNr = function($bar) {
+        var nr = /(?:^| )bar(\\d+)(=:$| )/.exec($bar.attr('class'));
+        if(!nr) return undefined;
+        return nr[1];
+    };
+    var renderHistogram = function($d, data) {
+        var bars = data.bars;
+        var maxHeight = data.maxHeight;
+        var joined = data.joined;
+        var $container = $d.find('.hcontainer');
+        var widthContainer = $container.width();
+        var heightContainer = $container.height();
+        var stretch = widthContainer / (bars[bars.length - 1].right - bars[0].left);
+        for(i = 0; i < bars.length; i++) {
+            var left = (bars[i].left - bars[0].left) * stretch;
+            var height = bars[i].height;
+            height *= heightContainer / maxHeight;
+            var width = bars[i].width * stretch - 1;
+            //var height = (bars[i].count * heightContainer / max);
+            var beam = '<div style="position: absolute; border: 1px solid black; background-color: yellow; height: '+Math.floor(height)+'px; bottom: 0px; width: '+Math.floor(width)+'px; left: '+Math.floor(left)+'px;" title="'+bars[i].count+' * ('+bars[i].right+' - '+bars[i].left+') = '+bars[i].views+'" class="bar bar'+i+'"></div>';
+            // beams += beam;
+            var $beam = $(beam);
+            $beam.click(function(){
+                var $this = $(this);
+                var nr = getNr($this);
+                if(nr === undefined) return;
+                var html = '<table><tbody>';
+                $.each(bars[nr].contained, function(idx, c) {
+                    html += '<tr><td>'+joined[c][1] + '</td><td>' + joined[c][0] + '</td></tr>';
+                });
+                html += '</tbody></table>';
+                $d.find('.details').html(html);
+            });
+            $container.append($beam);
+        }
+        var x;
+        var mouseDown;
+        $container.on('mousedown', function(e) {
+            x = e.pageX;
+            mouseDown = true;
+        });
+        $container.on('mouseup', function(e) {
+            if(!mouseDown) return;
+            var x2 = e.pageX;
+            foswiki.e = e;
+            mouseDown = false;
+            var dist = e.pageX - x;
+            var xLeft, xRight;
+            if(x < x2) {
+                xLeft = x;
+                xRight = x2;
+            } else {
+                xLeft = x2;
+                xRight = x;
+            }
+            var end = -1;
+            var start = joined.length;
+            console.log("Coords: "+xLeft+" - " + xRight);
+            $('.bar').each(function(){
+                var $this = $(this);
+                var xThisLeft = $this.offset().left;
+                var xThisRight = xThisLeft + $this.width();
+                if((xLeft < xThisLeft && xThisLeft < xRight) || (xRight > xThisRight && xThisRight > xLeft)) {
+                    console.log("bingo");
+                    var nr = getNr($this);
+                    if(nr === undefined) return;
+                    var bar = bars[nr];
+                    if(start > bar.start) start = bar.start;
+                    if(end < bar.end) end = bar.end;
+                }
+            });
+        });
+    };
     var toCsv = function(result, listName, refName) {
         var csv = '';
         var obj;
@@ -35,7 +108,7 @@ jQuery(function($) {
             }
             var n;
             obj = ref;
-            $(item.split(/\//)).each(followObj); // rather cheaply not splitting on . to avoid Main.UserName
+            $(item.split(/\/|\./)).each(followObj); // XXX Main.UserName
             if(!obj) {
                 $.pnotify(refName+'['+item+'] not found!');
                 obj = 0;
@@ -49,6 +122,7 @@ jQuery(function($) {
         var showSubdialog = function(output, options) {
             $menu.dialog('close');
             var $dialog = $(createDialog(options));
+            if(options.open) $dialog.on('dialogopen', options.open);
             $dialog.on('dialogclose', function(){
                 $menu.dialog('open');
                 $dialog.remove();
@@ -57,6 +131,7 @@ jQuery(function($) {
             $dialog.append('<div>'+output+'</div>');
             $dialog.append('<a class="jqUIDialogButton jqUIDialogClose {icon:\'ui-icon-circle-check\'}">OK</a>'); // XXX MAKETEXT
             $('body').append($dialog);
+            return $dialog;
         };
         var showTopResults = function() {
             var output = '<h2>Top ' + result.topEditRange + ' edited topics</h2>'; // XXX MAKETEXT
@@ -82,27 +157,40 @@ jQuery(function($) {
             });
             var count = joined.length;
             var median = joined[Math.floor(count/2)][1];
-            var bottom = joined[Math.floor(count * 10 / 100)][1];
-            var upper = joined[Math.floor(count * 90 / 100)][1];
+            var bottom = joined[Math.floor(count * 5 / 100)][1];
+            var upper = joined[Math.floor(count * 95 / 100)][1];
             var bin = (upper - bottom) / 8;
-            var bars = [{count:0, start:0}];
-            var limit = bin;
+            var createBar = function(start) { return {count:0, start:start, views:0, contained: []}; };
+            var bars = [createBar(0)];
+            foswiki.bars = bars;
+            var limit = bin + joined[0][1];
             var binNr = 0;
             var i;
             var max = -1;
             var heightContainer = 100;
-            var widthContainer = 300;
+            var widthContainer = 500;
             for(i = 0; i < joined.length; i++) {
                 if(joined[i][1] > limit) {
                     if(bars[binNr].count > max) max = bars[binNr].count;
                     bars[binNr].end = i-1;
                     binNr++;
-                    limit = (binNr + 1) * bin;
-                    bars[binNr] = {count: 0, start: i};
+                    // limit = joined[0][1] + (binNr + 1) * bin;
+                    limit += bin;
+                    if(0)if(limit <= joined[i][1]) {
+                        limit = joined[i][1] + bars;
+                    }
+                    bars[binNr] = createBar(i);
                 }
-                bars[binNr].count++;
+                if(joined[i][1]) {
+                    bars[binNr].count++;
+                    bars[binNr].views += joined[i][1];
+                    bars[binNr].contained.push(i);
+                } else {
+                    console.log("No views in " + i);
+                }
             }
-            bars[bars.length-1].end = bars.length - 1;
+            bars[bars.length-1].end = joined.length - 1;
+            foswiki.bars=bars;
 
             var output = '<table><tbody><tr>';
             for(i = 0; i < bars.length; i++) {
@@ -111,35 +199,60 @@ jQuery(function($) {
             }
             output += '</tr><tr>';
             for(i = 0; i < bars.length; i++) {
-                output += '<td>' + bars[i].count + '</td>';
+                output += '<td>' + bars[i].count + '<br />' + bars[i].views + '</td>';
             }
             output += '</tr></tbody></table>';
-            output += '<div style="height: '+heightContainer+'px; width: '+widthContainer+'x; position: relative;" class="hcontainer">';
+            output += '<div style="height: '+heightContainer+'px; width: '+widthContainer+'px; position: relative; background-color: #FEF;" class="hcontainer"></div><div class="details" style="widht: '+widthContainer+'px; height: '+heightContainer+'px; overflow-y: auto;"></div>';
             var beams = '';
-            var stretch = widthContainer / joined[joined.length - 1][1];
+            var maxHeight = -1; // XXX should be attribute of some bars object
             for(i = 0; i < bars.length; i++) {
-                var height = bars[i].count / joined.length / widthContainer;
-                //var height = (bars[i].count * heightContainer / max);
-                var dist = heightContainer - height;
                 var left, right;
+                try { // XXX
                 if(i > 0) {
-                    left = (joined[bars[i].start][1] + joined[bars[i-1].end][1]) / 2 * stretch;
+                    if(joined[bars[i].start][1] - joined[bars[i-1].end][1] > 2 * bin) {
+                        left = joined[bars[i].start][1] - bin / 2;
+                    } else {
+                        left = (joined[bars[i].start][1] + joined[bars[i-1].end][1]) / 2;
+                    }
                 } else {
                     left = 0;
                 }
                 if(i < bars.length -1) {
-                    right = (joined[bars[i].end][1] + joined[bars[i+1].start][1]) / 2 * stretch;
+                    if(joined[bars[i+1].start][1] - joined[bars[i].end][1] > 2 * bin) {
+                        right = joined[bars[i].end][1] + bin / 2;
+                    } else {
+                        right = (joined[bars[i+1].start][1] + joined[bars[i].end][1]) / 2;
+                    }
                 } else {
-                    right = (joined[bars[i].end][1]) * stretch;
+                    right = (joined[bars[i].end][1]);
+                }
+                } catch (e) {
+                    console.log("i: " + i + "start: " + bars[i].start + " end: " + bars[i].end);
+                    continue;
                 }
                 //var right = joined[bars[i].end][1] * stretch;
                 //var left = joined[bars[i].start][1] * stretch;
-                var width = right - left - 1;
-                beams += '<div style="position: absolute; border: 1px solid black; background-color: yellow; height: '+height+'px; bottom: 0px; width: '+width+'px; left: '+left+'px;"></div>';
+                var width, height;
+                width = right - left;
+                if(width) {
+                    height = bars[i].views / width;
+                } else {
+                    height = 0;
+                }
+                if(height > maxHeight) maxHeight = height;
+                bars[i].height = height;
+                bars[i].left = left;
+                bars[i].right = right;
+                bars[i].width = width;
             }
-            output += beams;
-            output += '</div>';
-            showSubdialog(output, {title: result.title || ''});
+            var data = {bars: bars, maxHeight: maxHeight, joined: joined};
+            // XXX doing this in a shard will solve a lot of troubles
+            var inited = false;
+            var $d = showSubdialog(output, {title: result.title || '', open: function(){
+                if(inited) return;
+                inited = true;
+                renderHistogram($d, data);
+            }});
         };
         $form.closest('.Statistics2Plugin').unblock();
         var result = $.parseJSON(responseText.result);
