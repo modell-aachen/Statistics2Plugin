@@ -11,17 +11,24 @@ jQuery(function($) {
             '} '+((options.dialogClass!==undefined)?options.dialogClass:'modacAjaxDialog')+'"></div>';
     };
     var getNr = function($bar) {
-        var nr = /(?:^| )bar(\\d+)(=:$| )/.exec($bar.attr('class'));
+        var nr = /(?:^| )bar(\d+)(?:$| )/.exec($bar.attr('class'));
         if(!nr) return undefined;
         return nr[1];
     };
+    var createBar = function(start) { return {count:0, start:start, views:0, contained: []}; };
     var renderHistogram = function($d, data) {
         var bars = data.bars;
         var maxHeight = data.maxHeight;
         var joined = data.joined;
         var $container = $d.find('.hcontainer');
+        $container.children().remove();
         var widthContainer = $container.width();
         var heightContainer = $container.height();
+        console.log(bars);
+        if(!bars.length) {
+            window.console && console.log('No bars to render');
+            return;
+        }
         var stretch = widthContainer / (bars[bars.length - 1].right - bars[0].left);
         for(i = 0; i < bars.length; i++) {
             var left = (bars[i].left - bars[0].left) * stretch;
@@ -54,7 +61,6 @@ jQuery(function($) {
         $container.on('mouseup', function(e) {
             if(!mouseDown) return;
             var x2 = e.pageX;
-            foswiki.e = e;
             mouseDown = false;
             var dist = e.pageX - x;
             var xLeft, xRight;
@@ -68,19 +74,38 @@ jQuery(function($) {
             var end = -1;
             var start = joined.length;
             console.log("Coords: "+xLeft+" - " + xRight);
-            $('.bar').each(function(){
+            newbars = [];
+            newMaxHeight = -1;
+            var newbar;
+            console.log($container);
+            console.log('Nr bars: ' + $container.find('.bar').length);
+            $container.find('.bar').each(function(idx){
                 var $this = $(this);
+                var nr = getNr($this);
+                if(nr === undefined) {
+                    window.console && console.log('Could not find nr: '+$this.attr('class'));
+                    return;
+                }
+                var oldbar = bars[nr];
                 var xThisLeft = $this.offset().left;
                 var xThisRight = xThisLeft + $this.width();
                 if((xLeft < xThisLeft && xThisLeft < xRight) || (xRight > xThisRight && xThisRight > xLeft)) {
                     console.log("bingo");
-                    var nr = getNr($this);
-                    if(nr === undefined) return;
-                    var bar = bars[nr];
-                    if(start > bar.start) start = bar.start;
-                    if(end < bar.end) end = bar.end;
+                    if(!newbar) {
+                        newbar = createBar(oldbar.start);
+                    }
+                    newbar.end = oldbar.end;
+//                    if(start > oldbar.start) start = oldbar.start;
+//                    if(end < oldbar.end) end = oldbar.end;
+                    newbars.push(newbar);
+                } else {
+                    newbars.push(oldbar);
+                    newbar = undefined;
                 }
             });
+            console.log(newbars);
+            var newdata = {bars: newbars, joined: data.joined, maxHeight: data.maxHeight};
+            renderHistogram($d, newdata);
         });
     };
     var toCsv = function(result, listName, refName) {
@@ -160,7 +185,6 @@ jQuery(function($) {
             var bottom = joined[Math.floor(count * 5 / 100)][1];
             var upper = joined[Math.floor(count * 95 / 100)][1];
             var bin = (upper - bottom) / 8;
-            var createBar = function(start) { return {count:0, start:start, views:0, contained: []}; };
             var bars = [createBar(0)];
             foswiki.bars = bars;
             var limit = bin + joined[0][1];
