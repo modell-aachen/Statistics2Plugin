@@ -63,6 +63,7 @@ jQuery(function($) {
             var x2 = e.pageX;
             mouseDown = false;
             var dist = e.pageX - x;
+            if(!dist) return true;
             var xLeft, xRight;
             if(x < x2) {
                 xLeft = x;
