@@ -79,30 +79,39 @@ jQuery(function($) {
             var newbar;
             console.log($container);
             console.log('Nr bars: ' + $container.find('.bar').length);
-            $container.find('.bar').each(function(idx){
-                var $this = $(this);
-                var nr = getNr($this);
-                if(nr === undefined) {
-                    window.console && console.log('Could not find nr: '+$this.attr('class'));
+            //$container.find('.bar').each(function(idx){
+            var nr;
+            for(nr = 0; nr < bars.length; nr++) {
+                var $this = $container.find('.bar' + nr);
+                if($this.length == 0) {
+                    window.console && console.log('Could not find nr: '+nr);
                     return;
                 }
                 var oldbar = bars[nr];
                 var xThisLeft = $this.offset().left;
                 var xThisRight = xThisLeft + $this.width();
                 if((xLeft < xThisLeft && xThisLeft < xRight) || (xRight > xThisRight && xThisRight > xLeft)) {
-                    console.log("bingo");
+                    console.log("bingo: " + nr);
                     if(!newbar) {
                         newbar = createBar(oldbar.start);
+                        newbar.left = oldbar.left;
+                        newbars.push(newbar);
                     }
                     newbar.end = oldbar.end;
-//                    if(start > oldbar.start) start = oldbar.start;
-//                    if(end < oldbar.end) end = oldbar.end;
-                    newbars.push(newbar);
+                    newbar.right = oldbar.right;
+                    newbar.width = newbar.right - newbar.left;
+                    newbar.count += oldbar.count;
+                    newbar.views += oldbar.views;
+                    if(newbar.width) {
+                        newbar.height = newbar.views / newbar.width;
+                    } else {
+                        newbar.height = 0;
+                    }
                 } else {
                     newbars.push(oldbar);
                     newbar = undefined;
                 }
-            });
+            };
             console.log(newbars);
             var newdata = {bars: newbars, joined: data.joined, maxHeight: data.maxHeight};
             renderHistogram($d, newdata);
