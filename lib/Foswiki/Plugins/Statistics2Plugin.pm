@@ -96,12 +96,13 @@ sub jsonAccess {
     my $topN = $request->param( 'topN' ) || 20;
     my $view_slack = $request->param( 'view_slack' );
     my $edit_slack = $request->param( 'edit_slack' );
+    my $maxInterval = $request->param( 'max_interval' );
 
     my $skipWebs = $request->param( 'skipWebs' );
     my $skipTopics = $request->param( 'skipTopics' );
     my $skipUsers = $request->param( 'skipUsers' );
 
-    my $logData = _collectLogData( $session, $start, $end, $view_slack, $edit_slack, $skipWebs, $skipTopics, $skipUsers );
+    my $logData = _collectLogData( $session, $start, $end, $view_slack, $edit_slack, $skipWebs, $skipTopics, $skipUsers, $maxInterval );
 
     $logData->{topEditRange} = $topN;
     $logData->{topViewRange} = $topN;
@@ -192,7 +193,7 @@ sub _regexify {
 }
 
 sub _collectLogData {
-    my ( $session, $start, $end, $viewSlack, $saveSlack, $skipWebs, $skipTopics, $skipUsers ) = @_;
+    my ( $session, $start, $end, $viewSlack, $saveSlack, $skipWebs, $skipTopics, $skipUsers, $maxInterval ) = @_;
 
     my $skipWebRegex = _regexify($skipWebs);
     my $skipTopicRegex = _regexify($skipTopics);
@@ -200,6 +201,8 @@ sub _collectLogData {
 
     $viewSlack ||= 60*60; # 1h
     $saveSlack ||= 60*60; # 1h
+
+    $maxInterval ||= 12*60*60; # halve a day
 
     # Log file contains: $user, $action, $webTopic, $extra, $remoteAddr
     # $user - cUID of user - default current user,
@@ -218,7 +221,14 @@ sub _collectLogData {
         statViewsSubwebsRef   => {},
         statSavesRef   => {},
         statSavesSubwebsRef   => {},
-        statUploadsRef => {}
+        statUploadsRef => {},
+        viewIntervals => {},
+        saveIntervals => {},
+    };
+
+    my $lastTime2 = {
+        view => {},
+        save => {}
     };
 
     my $lastTime = {
@@ -240,8 +250,8 @@ sub _collectLogData {
 
             # Use Func::getCanonicalUserID because it accepts login,
             # wikiname or web.wikiname
-            $logFileUserName =
-              Foswiki::Func::getCanonicalUserID($logFileUserName);
+#XXX put me back!            $logFileUserName =
+#              Foswiki::Func::getCanonicalUserID($logFileUserName);
         }
 
         my ( $opName, $webTopic, $notes, $ip ) = @$line;
@@ -273,6 +283,20 @@ sub _collectLogData {
             if ( $opName eq 'view' ) {
                 my $user = $users->webDotWikiName($logFileUserName);
                 next if $skipUserRegex && $user =~ m#$skipUserRegex#;
+
+                my $lastView2 = $lastTime2->{view}->{$webName}{$topicName}{$user};
+                $lastTime2->{view}->{$webName}{$topicName}{$user} = $date;
+                if($lastView2) {
+                    my $interval = $date - $lastView2;
+                    if($interval > $maxInterval) {
+                        $interval = $maxInterval;
+                    }
+                    if($interval < 0) {
+                        Foswiki::Func::writeWarning("negative interval at ".join(':', @$line));
+                    } else {
+                        $data->{viewIntervals}{$interval}++;
+                    }
+                }
 
                 my $lastView = $lastTime->{view}->{$webName}{$topicName}{$user};
                 next if $lastView && ($date - $lastView < $viewSlack);
