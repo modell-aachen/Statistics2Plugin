@@ -113,10 +113,12 @@ sub jsonApproval {
 
     my $suffix = Foswiki::Plugins::KVPPlugin::_WORKFLOWSUFFIX();
 
+    my $max = 9995; # XXX remove me
     foreach my $web (@webArray) {
         my @topics = Foswiki::Func::getTopicList( $web );
 
         foreach my $topic (@topics) {
+            last unless $max > 0;
             next if $topic =~ m#$suffix$#;
             my $controlledTopic = Foswiki::Plugins::KVPPlugin::_initTOPIC( $web, $topic );
 
@@ -139,9 +141,11 @@ sub jsonApproval {
                             if($hadApproval) {
                                 my $diff = $revDate - $lastUnapproved;
                                 $approvalData->{ApproveIntervals}{$diff}{"$web.$topic"} = $revControlledTopic->getWorkflowMeta('Revision')." \@$rev";
+                                $max--;
                             } else {
                                 my $diff = $revDate - $firstDate;
                                 $approvalData->{DraftIntervals}{$diff}{"$web.$topic"} = $revControlledTopic->getWorkflowMeta('Revision')." \@$rev";
+                                $max--;
                             }
                         }
                         $lastUnapproved = undef;

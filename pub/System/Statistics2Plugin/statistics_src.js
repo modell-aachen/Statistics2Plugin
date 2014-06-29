@@ -70,6 +70,133 @@ jQuery(function($) {
         return a[0] - b[0];
     };
 
+        var createIntervalData = function(joined) {
+            var data = new IntervalData(joined);
+
+            var bars = [createBar(0)];
+
+            var bin = data.bin;
+
+            var limit = bin + data.getValue(0);
+            var binNr = 0;
+            var i;
+            var maxCount = -1;
+            for(i = 0; i < data.getLength(); i++) {
+                if(data.getValue(i) > limit) {
+                    if(bars[binNr].count > maxCount) maxCount = bars[binNr].count;
+                    bars[binNr].end = i-1;
+                    binNr++;
+                    // limit = joined[0][1] + (binNr + 1) * bin;
+                    limit += bin;
+                    bars[binNr] = createBar(i);
+                }
+                if(data.getAmount(i)) {
+                    bars[binNr].count++;
+                    bars[binNr].views += data.getAmount(i);
+                    bars[binNr].contained.push(i);
+                } else {
+                    window.console && console.log("No views in " + i);
+                }
+            }
+            bars[bars.length-1].end = joined.length - 1;
+
+            data.maxCount = maxCount;
+            data.bars = bars;
+
+            return data;
+        };
+    var showHistogram = function($menu, data, title) {
+        var heightContainer = 100;
+        var widthContainer = 500;
+
+        var i;
+
+        var max = data.maxHeight;
+        var joined = data.joined;
+        var bars = data.bars;
+        var bin = data.bin;
+
+        foswiki.joined = data.joined;
+        foswiki.bars=data.bars;
+
+        var output = '<table><tbody><tr>';
+        for(i = 0; i < bars.length; i++) {
+            var height = (bars[i].count * heightContainer / max);
+            output += '<td><div style="position: static; height: '+heightContainer+'px;"><div style="height: ' + (heightContainer - height) + 'px;"></div><div style="height: ' + height + 'px;" class="histo nr'+i+'"></div></div></td>';
+        }
+        output += '</tr><tr>';
+        for(i = 0; i < bars.length; i++) {
+            output += '<td>' + bars[i].count + '<br />' + bars[i].views + '</td>';
+        }
+        output += '</tr></tbody></table>';
+        output += '<div style="height: '+heightContainer+'px; width: '+widthContainer+'px;" class="hcontainer"></div><div class="details" style="widht: '+widthContainer+'px; height: '+heightContainer+'px; overflow-y: auto;"></div>';
+        var beams = '';
+        var maxHeight = -1;
+        for(i = 0; i < bars.length; i++) {
+            var left, right;
+            try { // XXX
+                var w = 13;
+                if(i > 0) {
+                    if(data.getValue(bars[i].start) - data.getValue(bars[i-1].end) > 2 * bin) {
+                        left = data.getValue(bars[i].start) - bin / 2;
+                    } else {
+                        left = (data.getValue(bars[i].start) + data.getValue(bars[i-1].end)) / 2;
+                    }
+                } else {
+                    left = 0;
+                }
+                if(i < bars.length -1) {
+                    if(data.getValue(bars[i+1].start) - data.getValue(bars[i].end) > 2 * bin) {
+                        right = data.getValue(bars[i].end) + bin / 2;
+                    } else {
+                        right = (data.getValue(bars[i+1].start) + data.getValue(bars[i].end)) / 2;
+                    }
+                } else {
+                    right = data.getValue(bars[i].end);
+                }
+            } catch (e) {
+                window.console && console.log("i: " + i + " start: " + bars[i].start + " end: " + bars[i].end);
+                continue;
+            }
+            var width, height;
+            width = right - left;
+            if(width) {
+                height = bars[i].views / width;
+            } else {
+                height = 0;
+            }
+            if(height > maxHeight) maxHeight = height;
+            bars[i].height = height;
+            bars[i].left = left;
+            bars[i].right = right;
+            bars[i].width = width;
+        }
+        data.maxHeight = maxHeight;
+        data.bars = bars;
+        // XXX doing this in a shard will solve a lot of troubles
+        var inited = false;
+        foswiki.data = data;
+        var $d = showSubdialog($menu, output, {title: title || '', open: function(){
+            if(inited) return;
+            inited = true;
+            renderHistogram($d, data);
+        }});
+    };
+
+    var showSubdialog = function($menu, output, options) {
+        $menu.dialog('close');
+        var $dialog = $(createDialog(options));
+        if(options.open) $dialog.on('dialogopen', options.open);
+        $dialog.on('dialogclose', function(){
+            $menu.dialog('open');
+            $dialog.remove();
+        });
+
+        $dialog.append('<div>'+output+'</div>');
+        $dialog.append('<a class="jqUIDialogButton jqUIDialogClose {icon:\'ui-icon-circle-check\'}">OK</a>'); // XXX MAKETEXT
+        $('body').append($dialog);
+        return $dialog;
+    };
     var createDialog = function(options) {
         return '<div class="jqUIDialog {width:' + ((options.width!==undefined)?options.width:'600') +
             ', modal:' + ((options.modal!==undefined)?options.modal:'true') +
@@ -220,20 +347,6 @@ jQuery(function($) {
         return csv;
     };
     var successViewEdit = function(result){
-        var showSubdialog = function(output, options) {
-            $menu.dialog('close');
-            var $dialog = $(createDialog(options));
-            if(options.open) $dialog.on('dialogopen', options.open);
-            $dialog.on('dialogclose', function(){
-                $menu.dialog('open');
-                $dialog.remove();
-            });
-
-            $dialog.append('<div>'+output+'</div>');
-            $dialog.append('<a class="jqUIDialogButton jqUIDialogClose {icon:\'ui-icon-circle-check\'}">OK</a>'); // XXX MAKETEXT
-            $('body').append($dialog);
-            return $dialog;
-        };
         var showTopResults = function() {
             var output = '<h2>Top ' + result.topEditRange + ' edited topics</h2>'; // XXX MAKETEXT
             output += toCsv(result, 'edit_top', 'saveRef');
@@ -244,7 +357,7 @@ jQuery(function($) {
             output += '<h2>Top ' + result.topViewersRange + ' viewers</h2>';
             output += toCsv(result, 'viewers_top', 'viewers');
             var title = (result.title || '') + ' top usage';
-            showSubdialog(output, {title: title});
+            showSubdialog($menu, output, {title: title});
         };
         var showIntervalHistogram = function() {
             var points = [];
@@ -255,42 +368,7 @@ jQuery(function($) {
                 points.push([interval, result.viewIntervals[interval]]);
             }
             points.sort(IntervalData.prototype.sortPoints);
-            showHistogram(createIntervalData(points));
-        };
-        var createIntervalData = function(joined) {
-            var data = new IntervalData(joined);
-
-            var bars = [createBar(0)];
-
-            var bin = data.bin;
-
-            var limit = bin + data.getValue(0);
-            var binNr = 0;
-            var i;
-            var maxCount = -1;
-            for(i = 0; i < data.getLength(); i++) {
-                if(data.getValue(i) > limit) {
-                    if(bars[binNr].count > maxCount) maxCount = bars[binNr].count;
-                    bars[binNr].end = i-1;
-                    binNr++;
-                    // limit = joined[0][1] + (binNr + 1) * bin;
-                    limit += bin;
-                    bars[binNr] = createBar(i);
-                }
-                if(data.getAmount(i)) {
-                    bars[binNr].count++;
-                    bars[binNr].views += data.getAmount(i);
-                    bars[binNr].contained.push(i);
-                } else {
-                    window.console && console.log("No views in " + i);
-                }
-            }
-            bars[bars.length-1].end = joined.length - 1;
-
-            data.maxCount = maxCount;
-            data.bars = bars;
-
-            return data;
+            showHistogram($menu, createIntervalData(points), result.title);
         };
         var showViewEditHistogram = function() {
             var joined = [];
@@ -302,7 +380,7 @@ jQuery(function($) {
             }
             joined.sort(ViewEditData.prototype.sortPoints);
 
-            showHistogram(createViewEditData(joined));
+            showHistogram($menu, createViewEditData(joined), result.title);
         };
         var createViewEditData = function(joined) {
             var data = new ViewEditData(joined);
@@ -340,82 +418,6 @@ jQuery(function($) {
 
             return data;
         };
-        var showHistogram = function(data) {
-            var heightContainer = 100;
-            var widthContainer = 500;
-
-            var i;
-
-            var max = data.maxHeight;
-            var joined = data.joined;
-            var bars = data.bars;
-            var bin = data.bin;
-
-            foswiki.joined = data.joined;
-            foswiki.bars=data.bars;
-
-            var output = '<table><tbody><tr>';
-            for(i = 0; i < bars.length; i++) {
-                var height = (bars[i].count * heightContainer / max);
-                output += '<td><div style="position: static; height: '+heightContainer+'px;"><div style="height: ' + (heightContainer - height) + 'px;"></div><div style="height: ' + height + 'px;" class="histo nr'+i+'"></div></div></td>';
-            }
-            output += '</tr><tr>';
-            for(i = 0; i < bars.length; i++) {
-                output += '<td>' + bars[i].count + '<br />' + bars[i].views + '</td>';
-            }
-            output += '</tr></tbody></table>';
-            output += '<div style="height: '+heightContainer+'px; width: '+widthContainer+'px;" class="hcontainer"></div><div class="details" style="widht: '+widthContainer+'px; height: '+heightContainer+'px; overflow-y: auto;"></div>';
-            var beams = '';
-            var maxHeight = -1;
-            for(i = 0; i < bars.length; i++) {
-                var left, right;
-                try { // XXX
-                    var w = 13;
-                    if(i > 0) {
-                        if(data.getValue(bars[i].start) - data.getValue(bars[i-1].end) > 2 * bin) {
-                            left = data.getValue(bars[i].start) - bin / 2;
-                        } else {
-                            left = (data.getValue(bars[i].start) + data.getValue(bars[i-1].end)) / 2;
-                        }
-                    } else {
-                        left = 0;
-                    }
-                    if(i < bars.length -1) {
-                        if(data.getValue(bars[i+1].start) - data.getValue(bars[i].end) > 2 * bin) {
-                            right = data.getValue(bars[i].end) + bin / 2;
-                        } else {
-                            right = (data.getValue(bars[i+1].start) + data.getValue(bars[i].end)) / 2;
-                        }
-                    } else {
-                        right = data.getValue(bars[i].end);
-                    }
-                } catch (e) {
-                    window.console && console.log("i: " + i + " start: " + bars[i].start + " end: " + bars[i].end);
-                    continue;
-                }
-                var width, height;
-                width = right - left;
-                if(width) {
-                    height = bars[i].views / width;
-                } else {
-                    height = 0;
-                }
-                if(height > maxHeight) maxHeight = height;
-                bars[i].height = height;
-                bars[i].left = left;
-                bars[i].right = right;
-                bars[i].width = width;
-            }
-            data.maxHeight = maxHeight;
-            data.bars = bars;
-            // XXX doing this in a shard will solve a lot of troubles
-            var inited = false;
-            var $d = showSubdialog(output, {title: result.title || '', open: function(){
-                if(inited) return;
-                inited = true;
-                renderHistogram($d, data);
-            }});
-        };
         var $menu = $(createDialog({title: result.title || ''}));
         var $topButton = $('<div class="statisticsButton">Show top edits/views</div>'); // XXX MAKETEXT
         $topButton.click(showTopResults);
@@ -432,7 +434,38 @@ jQuery(function($) {
     };
 
     var successApproval = function(result){
-        console.log(result);
+        var showDraftIntervals = function() {
+            var points = [];
+            var interval;
+            for(interval in result.DraftIntervals) {
+                interval = parseFloat(interval);
+                if(interval < 0 || result.DraftIntervals[interval] <= 0) continue;
+                points.push([interval, Object.keys(result.DraftIntervals[interval]).length]);
+            }
+            points.sort(IntervalData.prototype.sortPoints);
+            showHistogram($menu, createIntervalData(points), result.title);
+        };
+        var showApproveIntervals = function() {
+            var points = [];
+            var interval;
+            for(interval in result.ApproveIntervals) {
+                interval = parseFloat(interval);
+                if(interval < 0 || result.ApproveIntervals[interval] <= 0) continue;
+                points.push([interval, Object.keys(result.ApproveIntervals[interval]).length]);
+            }
+            points.sort(IntervalData.prototype.sortPoints);
+            showHistogram($menu, createIntervalData(points), result.title);
+        };
+
+        var $menu = $(createDialog({title: result.title || ''}));
+        var $topButton = $('<div class="statisticsButton">Show draft interval</div>'); // XXX MAKETEXT
+        $topButton.click(showDraftIntervals);
+        $menu.append($topButton);
+        $menu.append('<p></p>');
+        var $histoButton = $('<div class="statisticsButton">Show approve interval</div>'); // XXX MAKETEXT
+        $histoButton.click(showApproveIntervals);
+        $menu.append($histoButton);
+        $('body').append($menu);
     };
 
     var success = function(responseText, statusText, xhr, $form){
