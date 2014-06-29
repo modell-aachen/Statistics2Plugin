@@ -11,13 +11,16 @@ jQuery(function($) {
         window.console && console.log('Abstract method "Data.getValue" called.');
         return 0;
     };
+    Data.prototype.getAmount = function() {
+        window.console && console.log('Abstract method "Data.getAmount" called.');
+        return 0;
+    };
     Data.prototype.getLabel = function() {
         window.console && console.log('Abstract method "Data.getLabel" called.');
         return 'error';
     };
-    Data.prototype.getLength = function() {
-        window.console && console.log('Abstract method "Data.getLength" called.');
-        return 0;
+    Data.prototype.getLength = function(){
+        return this.points.length;
     };
     Data.prototype.findBars = function() {
         var length = this.getLength();
@@ -25,6 +28,10 @@ jQuery(function($) {
         this.bottom = this.getValue(Math.floor(length * 5 / 100));
         this.upper = this.getValue(Math.floor(length * 95 / 100));
         this.bin = (this.upper - this.bottom) / 8;
+    };
+    Data.prototype.sortPoints = function(a,b) {
+        window.console && console.log('Abstact method "Data.sortPoints" called.');
+        return 0;
     };
 
     function ViewEditData(points) {
@@ -35,11 +42,14 @@ jQuery(function($) {
     ViewEditData.prototype.getValue = function(point) {
         return this.points[point][1];
     };
+    ViewEditData.prototype.getAmount = function(point) {
+        return this.points[point][1];
+    };
     ViewEditData.prototype.getLabel = function(point) {
         return this.points[point][0];
     };
-    ViewEditData.prototype.getLength = function(){
-        return this.points.length;
+    ViewEditData.prototype.sortPoints = function(a,b) {
+        return a[1] - b[1];
     };
 
     function IntervalData(points) {
@@ -50,11 +60,14 @@ jQuery(function($) {
     IntervalData.prototype.getValue = function(point) {
         return this.points[point][0];
     };
+    IntervalData.prototype.getAmount = function(point) {
+        return this.points[point][1];
+    };
     IntervalData.prototype.getLabel = function(point) {
         return this.points[point][0];
     };
-    IntervalData.prototype.getLength = function(){
-        return this.points.length;
+    IntervalData.prototype.sortPoints = function(a,b) {
+        return a[0] - b[0];
     };
 
     var createDialog = function(options) {
@@ -80,7 +93,6 @@ jQuery(function($) {
         $container.children().remove();
         var widthContainer = $container.width();
         var heightContainer = $container.height();
-        console.log(bars);
         if(!bars.length) {
             window.console && console.log('No bars to render');
             return;
@@ -104,7 +116,7 @@ jQuery(function($) {
                 var html = '<table><tbody>';
                 $.each(bars[nr].contained, function(idx, c) {
                     foswiki.data = data;
-                    html += '<tr><td>'+data.getValue(c) + '</td><td>' + data.getLabel(c) + '</td></tr>';
+                    html += '<tr><td>'+data.getAmount(c) + '</td><td>' + data.getLabel(c) + '</td></tr>';
                 });
                 html += '</tbody></table>';
                 $d.find('.details').html(html);
@@ -133,12 +145,9 @@ jQuery(function($) {
             }
             var end = -1;
             var start = 999999; // XXX
-            console.log("Coords: "+xLeft+" - " + xRight);
             var newbars = [];
             var newMaxHeight = -1;
             var newbar;
-            console.log($container);
-            console.log('Nr bars: ' + $container.find('.bar').length);
             var nr;
             for(nr = 0; nr < bars.length; nr++) {
                 var $this = $container.find('.bar' + nr);
@@ -150,7 +159,6 @@ jQuery(function($) {
                 var xThisLeft = $this.offset().left;
                 var xThisRight = xThisLeft + $this.width();
                 if((xLeft < xThisLeft && xThisLeft < xRight) || (xRight > xThisRight && xThisRight > xLeft)) {
-                    console.log("bingo: " + nr);
                     if(!newbar) {
                         newbar = createBar(oldbar.start);
                         newbar.left = oldbar.left;
@@ -171,7 +179,7 @@ jQuery(function($) {
                     newbar = undefined;
                 }
             };
-            var newdata = {bars: newbars, joined: data.joined, maxHeight: data.maxHeight, getValue: data.getValue, getLabel: data.getLabel};
+            var newdata = {bars: newbars, joined: data.joined, maxHeight: data.maxHeight, getValue: data.getValue, getLabel: data.getLabel, getAmount: data.getAmount, points: data.points}; // XXX create new Data object
             foswiki.data = newdata; // XXX
             renderHistogram($d, newdata);
         });
@@ -239,16 +247,15 @@ jQuery(function($) {
             showSubdialog(output, {title: title});
         };
         var showIntervalHistogram = function() {
-            var joined = [];
+            var points = [];
             var interval;
             for(interval in result.viewIntervals) {
+                interval = parseFloat(interval);
                 if(interval < 0 || result.viewIntervals[interval] <= 0) continue;
-                joined.push([interval, result.viewIntervals[interval]]);
+                points.push([interval, result.viewIntervals[interval]]);
             }
-            joined.sort(function(a,b) {
-                return a[0] - b[0];
-            });
-            showHistogram(createIntervalData(joined));
+            points.sort(IntervalData.prototype.sortPoints);
+            showHistogram(createIntervalData(points));
         };
         var createIntervalData = function(joined) {
             var data = new IntervalData(joined);
@@ -257,12 +264,12 @@ jQuery(function($) {
 
             var bin = data.bin;
 
-            var limit = bin + joined[0][0];
+            var limit = bin + data.getValue(0);
             var binNr = 0;
             var i;
             var maxCount = -1;
-            for(i = 0; i < joined.length; i++) {
-                if(joined[i][0] > limit) {
+            for(i = 0; i < data.getLength(); i++) {
+                if(data.getValue(i) > limit) {
                     if(bars[binNr].count > maxCount) maxCount = bars[binNr].count;
                     bars[binNr].end = i-1;
                     binNr++;
@@ -270,19 +277,18 @@ jQuery(function($) {
                     limit += bin;
                     bars[binNr] = createBar(i);
                 }
-                if(joined[i][0]) {
+                if(data.getAmount(i)) {
                     bars[binNr].count++;
-                    bars[binNr].views += joined[i][1];
+                    bars[binNr].views += data.getAmount(i);
                     bars[binNr].contained.push(i);
                 } else {
-                    console.log("No views in " + i);
+                    window.console && console.log("No views in " + i);
                 }
             }
             bars[bars.length-1].end = joined.length - 1;
 
             data.maxCount = maxCount;
             data.bars = bars;
-            data.bin = bin;
 
             return data;
         };
@@ -294,9 +300,7 @@ jQuery(function($) {
                     joined.push([web + topic, result.viewRef[web][topic]]);
                 }
             }
-            joined.sort(function(a,b) {
-                return a[1] - b[1];
-            });
+            joined.sort(ViewEditData.prototype.sortPoints);
 
             showHistogram(createViewEditData(joined));
         };
@@ -327,21 +331,12 @@ jQuery(function($) {
                     bars[binNr].views += joined[i][1];
                     bars[binNr].contained.push(i);
                 } else {
-                    console.log("No views in " + i);
+                    window.console && console.log("No views in " + i);
                 }
             }
             bars[bars.length-1].end = joined.length - 1;
 
             data.maxCount = maxCount;
-//            data.bars = bars;
-//            data.joined = joined;
-//            data.bin = bin;
-//            data.getValue = function(point) {
-//                return joined[point][1];
-//            };
-//            data.getLabel = function(point) {
-//                return joined[point][0];
-//            };
 
             return data;
         };
@@ -371,34 +366,33 @@ jQuery(function($) {
             output += '</tr></tbody></table>';
             output += '<div style="height: '+heightContainer+'px; width: '+widthContainer+'px;" class="hcontainer"></div><div class="details" style="widht: '+widthContainer+'px; height: '+heightContainer+'px; overflow-y: auto;"></div>';
             var beams = '';
-            var maxHeight = -1; // XXX should be attribute of some bars object
+            var maxHeight = -1;
             for(i = 0; i < bars.length; i++) {
                 var left, right;
                 try { // XXX
-                if(i > 0) {
-                    if(data.getValue(bars[i].start) - data.getValue(bars[i-1].end) > 2 * bin) {
-                        left = data.getValue(bars[i].start) - bin / 2;
+                    var w = 13;
+                    if(i > 0) {
+                        if(data.getValue(bars[i].start) - data.getValue(bars[i-1].end) > 2 * bin) {
+                            left = data.getValue(bars[i].start) - bin / 2;
+                        } else {
+                            left = (data.getValue(bars[i].start) + data.getValue(bars[i-1].end)) / 2;
+                        }
                     } else {
-                        left = (data.getValue(bars[i].start) + data.getValue(bars[i-1].end)) / 2;
+                        left = 0;
                     }
-                } else {
-                    left = 0;
-                }
-                if(i < bars.length -1) {
-                    if(data.getValue(bars[i+1].start) - data.getValue(bars[i].end) > 2 * bin) {
-                        right = data.getValue(bars[i].end) + bin / 2;
+                    if(i < bars.length -1) {
+                        if(data.getValue(bars[i+1].start) - data.getValue(bars[i].end) > 2 * bin) {
+                            right = data.getValue(bars[i].end) + bin / 2;
+                        } else {
+                            right = (data.getValue(bars[i+1].start) + data.getValue(bars[i].end)) / 2;
+                        }
                     } else {
-                        right = (data.getValue(bars[i+1].start) + data.getValue(bars[i].end)) / 2;
+                        right = data.getValue(bars[i].end);
                     }
-                } else {
-                    right = (data.getValue(bars[i].end));
-                }
                 } catch (e) {
-                    console.log("i: " + i + " start: " + bars[i].start + " end: " + bars[i].end);
+                    window.console && console.log("i: " + i + " start: " + bars[i].start + " end: " + bars[i].end);
                     continue;
                 }
-                //var right = joined[bars[i].end][1] * stretch;
-                //var left = joined[bars[i].start][1] * stretch;
                 var width, height;
                 width = right - left;
                 if(width) {
