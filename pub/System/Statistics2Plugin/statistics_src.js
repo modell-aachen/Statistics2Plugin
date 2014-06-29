@@ -219,7 +219,7 @@ jQuery(function($) {
         });
         return csv;
     };
-    var success = function(responseText, statusText, xhr, $form){
+    var successViewEdit = function(result){
         var showSubdialog = function(output, options) {
             $menu.dialog('close');
             var $dialog = $(createDialog(options));
@@ -416,13 +416,6 @@ jQuery(function($) {
                 renderHistogram($d, data);
             }});
         };
-        $form.closest('.Statistics2Plugin').unblock();
-        var result = $.parseJSON(responseText.result);
-        if(!result) {
-            $.pnotify('no result');
-            return;
-        }
-        foswiki.result = result; // XXX remove me
         var $menu = $(createDialog({title: result.title || ''}));
         var $topButton = $('<div class="statisticsButton">Show top edits/views</div>'); // XXX MAKETEXT
         $topButton.click(showTopResults);
@@ -437,6 +430,26 @@ jQuery(function($) {
         $menu.append($intervalButton);
         $('body').append($menu);
     };
+
+    var successApproval = function(result){
+        console.log(result);
+    };
+
+    var success = function(responseText, statusText, xhr, $form){
+        $form.closest('.Statistics2Plugin').unblock();
+        var result = $.parseJSON(responseText.result);
+        if(!result) {
+            $.pnotify('no result');
+            return;
+        }
+        foswiki.result = result; // XXX remove me
+        if($form.hasClass('ViewEdit')) {
+            successViewEdit(result);
+        } else if($form.hasClass('Approval')) {
+            successApproval(result);
+        }
+    };
+
     var beforeSubmit = function(arr, $form, options) {
         $form.closest('.Statistics2Plugin').block();
     };

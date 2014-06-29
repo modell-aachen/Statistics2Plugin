@@ -11,7 +11,7 @@ One line description, required for extensions repository catalog.
 
 ---++ Top usage
 %JQREQUIRE{"form,blockui,ui::dialog,pnotify"}%%ADDTOZONE{"script" id="statistics2plugin" text="<script type='text/javascript' src='%PUBURLPATH%/%SYSTEMWEB%/Statistics2Plugin/statistics.js'></script><style type='text/css' media='all'>@import url('%PUBURLPATH%/%SYSTEMWEB%/Statistics2Plugin/statistics.css');</style>" requires="JQUERYPLUGIN::FOSWIKI"}%<div class="Statistics2Plugin">
-<form action="%SCRIPTURL{jsonrpc}%/Statistics2Plugin/access" method="post">
+<form action="%SCRIPTURL{jsonrpc}%/Statistics2Plugin/access" method="post" class="ViewEdit">
 | *Parameter* | *Example* | *Input* |
 | <label for="start">Start time </label> | 2014-01 | <input type="text" name="start" value="" /> |
 | <label for="end">End time</label> | 2014-04 | <input type="text" name="end" value="" /> |
@@ -23,6 +23,20 @@ One line description, required for extensions repository catalog.
 | <label for="skipUsers">Skip these users</label> | admin, AdminUser, Main.AdminUser | <input type="text" name="skipUsers" value="%USERSWEB%.AdminUser" /> |
 | <label for="topN">How many top X</label> | 20 | <input type="text" name="topN" value="20" /> |
 | <div style="text-align: center;width: 100%;"><input type="submit" value="%MAKETEXT{"get statistics"}%" /></div> |||
+</form></div>
+
+---++ Approval times
+<div class="Statistics2Plugin">
+<form action="%SCRIPTURL{jsonrpc}%/Statistics2Plugin/approvals" method="post" class="Approval">
+| *Parameter* | *Example* | *Input* |
+| <label for="start">Start time </label> | 2014-01 | <input type="text" name="start" value="" /> |
+| <label for="end">End time</label> | 2014-04 | <input type="text" name="end" value="" /> |
+| <label for="webs">Process these webs</label> | Processes | <input type="text" name="webs" value="Ost3" /> |
+| <label for="skipWebs">Skip these webs</label> | System, Trash | <input type="text" name="skipWebs" value="%SYSTEMWEB%,%QUERY{"{TrashWebName}"}%" /> |
+| <label for="skipTopics">Skip these topics</label> | WebHome, WebHome-EN | <input type="text" name="skipTopics" value="" /> |
+| <label for="skipUsers">Skip these users</label> | admin, AdminUser, Main.AdminUser | <input type="text" name="skipUsers" value="%USERSWEB%.AdminUser" /> |
+| <label for="topN">How many top X</label> | 20 | <input type="text" name="topN" value="20" /> |
+| <div style="text-align: center;width: 100%;"><input type="submit" value="%MAKETEXT{"get approval statistics"}%" /></div> |||
 </form></div>
 
 ---++ Preferences

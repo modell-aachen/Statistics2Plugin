@@ -7,20 +7,22 @@ use strict;
 use warnings;
 
 
-use Foswiki::Sandbox                ();
-use Foswiki::WebFilter              ();
-use Foswiki::Meta                   ();
+use Foswiki::Sandbox ();
+use Foswiki::WebFilter ();
+use Foswiki::Meta ();
 use Foswiki::AccessControlException ();
 
-use Foswiki                         ();
-use Foswiki::Func    ();    # The plugins API
-use Foswiki::Plugins ();    # For the API version
-use Foswiki::UI                     ();
-use Foswiki::Time                   ();
+use Foswiki ();
+use Foswiki::Func (); # The plugins API
+use Foswiki::Plugins (); # For the API version
+use Foswiki::UI ();
+use Foswiki::Time ();
 
 use Foswiki::Contrib::JsonRpcContrib ();
 
-use Foswiki::Plugins::Statistics2Plugin::Result();
+use Foswiki::Plugins::KVPPlugin ();
+
+use Foswiki::Plugins::Statistics2Plugin::Result ();
 
 our $VERSION = "0.0";
 
@@ -51,13 +53,14 @@ sub initPlugin {
     }
 
     Foswiki::Contrib::JsonRpcContrib::registerMethod( "Statistics2Plugin", "access", \&jsonAccess );
+    Foswiki::Contrib::JsonRpcContrib::registerMethod( "Statistics2Plugin", "approvals", \&jsonApproval );
 
     # Plugin correctly initialized
     return 1;
 }
 
-sub jsonAccess {
-    my ($session, $request) = @_;
+sub getStartEndDates {
+    my ($request) = @_;
 
     my ( $startYear, $startMonth, $endYear, $endMonth );
     my $start = $request->param( 'start' );
@@ -92,6 +95,73 @@ sub jsonAccess {
             "$startYear-$startMonth-01"
         );
     }
+
+    return ($start, $startYear, $startMonth, $end, $endYear, $endMonth);
+}
+
+sub jsonApproval {
+    my ($session, $request) = @_;
+
+    my ($start, $startYear, $startMonth, $end, $endYear, $endMonth) = getStartEndDates($request);
+
+    my $webs = $request->param( 'webs' );
+    $webs =~ s#^\s*##;
+    $webs =~ s#\s*$##;
+    my @webArray = split('\s*,\s*', $webs);
+
+    my $approvalData = {};
+
+    my $suffix = Foswiki::Plugins::KVPPlugin::_WORKFLOWSUFFIX();
+
+    foreach my $web (@webArray) {
+        my @topics = Foswiki::Func::getTopicList( $web );
+
+        foreach my $topic (@topics) {
+            next if $topic =~ m#$suffix$#;
+            my $controlledTopic = Foswiki::Plugins::KVPPlugin::_initTOPIC( $web, $topic );
+
+            next unless $controlledTopic;
+            my ($lastRevDate, $author, $maxRev) = $controlledTopic->{meta}->getRevisionInfo();
+            my $lastUnapproved;
+            my $firstDate;
+            my $hadApproval = 0;
+            for(my $rev = 1; $rev <= $maxRev; $rev++) {
+                my $revControlledTopic = Foswiki::Plugins::KVPPlugin::_initTOPIC( $web, $topic, $rev, undef, undef, 1 );
+                if($rev == 1) {
+                    ($firstDate) = $revControlledTopic->{meta}->getRevisionInfo();
+                }
+                if($revControlledTopic) {
+                    my $isApproved = ($revControlledTopic->getRow( 'approved' ))?1:0;
+                    Foswiki::Func::writeWarning("Rev $rev is $isApproved lastUnapproved: ".($lastUnapproved || ''));
+                    my ($revDate) = $revControlledTopic->{meta}->getRevisionInfo();
+                    if($isApproved) {
+                        if($lastUnapproved) {
+                            if($hadApproval) {
+                                my $diff = $revDate - $lastUnapproved;
+                                $approvalData->{ApproveIntervals}{$diff}{"$web.$topic"} = $revControlledTopic->getWorkflowMeta('Revision')." \@$rev";
+                            } else {
+                                my $diff = $revDate - $firstDate;
+                                $approvalData->{DraftIntervals}{$diff}{"$web.$topic"} = $revControlledTopic->getWorkflowMeta('Revision')." \@$rev";
+                            }
+                        }
+                        $lastUnapproved = undef;
+                        $hadApproval = 1;
+                    } else {
+                        $lastUnapproved = $revDate unless $lastUnapproved;
+                    }
+                }
+            }
+
+        }
+    }
+
+    return Foswiki::Plugins::Statistics2Plugin::Result->new($approvalData);
+}
+
+sub jsonAccess {
+    my ($session, $request) = @_;
+
+    my ($start, $startYear, $startMonth, $end, $endYear, $endMonth) = getStartEndDates($request);
 
     my $topN = $request->param( 'topN' ) || 20;
     my $view_slack = $request->param( 'view_slack' );
