@@ -147,6 +147,8 @@ sub jsonApproval {
                                 $approvalData->{DraftIntervals}{$diff}{"$web.$topic"} = $revControlledTopic->getWorkflowMeta('Revision')." \@$rev";
                                 $max--;
                             }
+                            $approvalData->{ApprovalDates}{$web}{$revDate} = () unless $approvalData->{ApprovalDates}{$web}{$revDate};
+                            push(@{$approvalData->{ApprovalDates}{$web}{$revDate}}, "$web.$topic $rev");
                         }
                         $lastUnapproved = undef;
                         $hadApproval = 1;
