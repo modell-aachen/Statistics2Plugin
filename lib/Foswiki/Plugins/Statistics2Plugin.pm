@@ -126,6 +126,8 @@ sub jsonApproval {
             my ($lastRevDate, $author, $maxRev) = $controlledTopic->{meta}->getRevisionInfo();
             my $lastUnapproved;
             my $firstDate;
+            my $lastState;
+            my $lastStateDate;
             my $hadApproval = 0;
             for(my $rev = 1; $rev <= $maxRev; $rev++) {
                 my $revControlledTopic = Foswiki::Plugins::KVPPlugin::_initTOPIC( $web, $topic, $rev, undef, undef, 1 );
@@ -154,6 +156,17 @@ sub jsonApproval {
                         $hadApproval = 1;
                     } else {
                         $lastUnapproved = $revDate unless $lastUnapproved;
+                    }
+                    my $state = $revControlledTopic->getState();
+                    unless($lastState) {
+                        $lastState = $state;
+                        $lastStateDate = $revDate;
+                    } elsif($lastState ne $state || $rev == $maxRev) {
+                        my $diff = $revDate - $lastStateDate;
+                        $approvalData->{StateIntervals}{$state}{$diff} = () unless $approvalData->{StateIntervals}{$state}{$diff};
+                        push(@{$approvalData->{StateIntervals}{$state}{$diff}}, "$web.$topic $rev");
+                        $lastState = $state;
+                        $lastStateDate = $revDate;
                     }
                 }
             }

@@ -119,16 +119,17 @@ jQuery(function($) {
         foswiki.joined = data.joined;
         foswiki.bars=data.bars;
 
-        var output = '<table><tbody><tr>';
-        for(i = 0; i < bars.length; i++) {
-            var height = (bars[i].count * heightContainer / max);
-            output += '<td><div style="position: static; height: '+heightContainer+'px;"><div style="height: ' + (heightContainer - height) + 'px;"></div><div style="height: ' + height + 'px;" class="histo nr'+i+'"></div></div></td>';
-        }
-        output += '</tr><tr>';
-        for(i = 0; i < bars.length; i++) {
-            output += '<td>' + bars[i].count + '<br />' + bars[i].views + '</td>';
-        }
-        output += '</tr></tbody></table>';
+        var output = '';
+//        output = '<table><tbody><tr>';
+//        for(i = 0; i < bars.length; i++) {
+//            var height = (bars[i].count * heightContainer / max);
+//            output += '<td><div style="position: static; height: '+heightContainer+'px;"><div style="height: ' + (heightContainer - height) + 'px;"></div><div style="height: ' + height + 'px;" class="histo nr'+i+'"></div></div></td>';
+//        }
+//        output += '</tr><tr>';
+//        for(i = 0; i < bars.length; i++) {
+//            output += '<td>' + bars[i].count + '<br />' + bars[i].views + '</td>';
+//        }
+//        output += '</tr></tbody></table>';
         output += '<div style="height: '+heightContainer+'px; width: '+widthContainer+'px;" class="hcontainer"></div><div class="details" style="widht: '+widthContainer+'px; height: '+heightContainer+'px; overflow-y: auto;"></div>';
         var beams = '';
         var maxHeight = -1;
@@ -456,12 +457,26 @@ jQuery(function($) {
             points.sort(function(a,b) { return b[0] - a[0]; });
             showHistogram($menu, createIntervalData(points), result.title);
         };
+        var showStateIntervals = function() {
+            var points = [];
+            var interval;
+            var state = $menu.find('select[name="state"]').val();
+            for(interval in result.StateIntervals[state]) {
+                interval = parseFloat(interval);
+                if(interval < 0) continue;
+                points.push([interval, Object.keys(result.StateIntervals[state][interval]).length]);
+            }
+            foswiki.points = points;
+            points.sort(function(a,b) { return a[0] - b[0]; });
+            showHistogram($menu, createIntervalData(points), result.title);
+        };
         var showApprovalDates = function() {
             var dates = [];
             for(var date in result.ApprovalDates) {
                 dates.push([date, result.ApprovalDates[date]]);
             }
             dates.sort(IntervalData.prototype.sortPoints);
+            foswiki.dates = dates;
             var start = dates[0][0];
             var end = dates[dates.length - 1][0];
             var secondsPerDay = 60 * 60 * 24;
@@ -500,6 +515,17 @@ jQuery(function($) {
         var $dateButton = $('<div class="statisticsButton">Show approval dates</div>'); // XXX MAKETEXT
         $dateButton.click(showApprovalDates);
         $menu.append($dateButton);
+        $menu.append('<p></p>');
+        var states = Object.keys(result.StateIntervals);
+        var select = '<select name="state">';
+        for(var stateNr = 0; stateNr < states.length; stateNr++) {
+            select += '<option>'+states[stateNr]+'</option>';
+        }
+        select += '</select>';
+        $menu.append(select);
+        var $stateButton = $('<div class="statisticsButton">Show state intervals</div>'); // XXX MAKETEXT
+        $stateButton.click(showStateIntervals);
+        $menu.append($stateButton);
         $('body').append($menu);
     };
 
