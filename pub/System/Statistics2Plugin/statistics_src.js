@@ -453,9 +453,40 @@ jQuery(function($) {
                 if(interval < 0 || result.ApproveIntervals[interval] <= 0) continue;
                 points.push([interval, Object.keys(result.ApproveIntervals[interval]).length]);
             }
-            points.sort(IntervalData.prototype.sortPoints);
+            points.sort(function(a,b) { return b[0] - a[0]; });
             showHistogram($menu, createIntervalData(points), result.title);
         };
+        var showApprovalDates = function() {
+            var dates = [];
+            for(var date in result.ApprovalDates) {
+                dates.push([date, result.ApprovalDates[date]]);
+            }
+            dates.sort(IntervalData.prototype.sortPoints);
+            var start = dates[0][0];
+            var end = dates[dates.length - 1][0];
+            var secondsPerDay = 60 * 60 * 24;
+            var secondsPerWeek = 60 * 60 * 24 * 7;
+            var firstWeek = Math.floor(start / secondsPerWeek) * secondsPerWeek;
+            var lastWeek = Math.ceil(1.0 * end / secondsPerWeek) * secondsPerWeek;
+            var pos = 0;
+            var output = '<table><tbody>';
+            for(var week = firstWeek; week < lastWeek; week += secondsPerWeek) {
+                var date = new Date(week * 1000);
+                output += '<tr><td>Week '+date.toLocaleString()+'</td>';
+                for(var day = week; day < week + secondsPerWeek; day += secondsPerDay) {
+                    var height = 0;
+                    while(dates[pos] && dates[pos][0] < day) {
+                        height += dates[pos][1].length;
+                        pos++;
+                    }
+                    var heightStretched = height * 2;
+                    output += '<td><div class="calContainer"><div class="cal" style="height: '+height+'px;" title="'+height+'"></div></div></td>';
+                }
+                output += '</tr>';
+            }
+            output += '</tbody></table>';
+            showSubdialog($menu, output, {});
+        }
 
         var $menu = $(createDialog({title: result.title || ''}));
         var $topButton = $('<div class="statisticsButton">Show draft interval</div>'); // XXX MAKETEXT
@@ -465,6 +496,10 @@ jQuery(function($) {
         var $histoButton = $('<div class="statisticsButton">Show approve interval</div>'); // XXX MAKETEXT
         $histoButton.click(showApproveIntervals);
         $menu.append($histoButton);
+        $menu.append('<p></p>');
+        var $dateButton = $('<div class="statisticsButton">Show approval dates</div>'); // XXX MAKETEXT
+        $dateButton.click(showApprovalDates);
+        $menu.append($dateButton);
         $('body').append($menu);
     };
 

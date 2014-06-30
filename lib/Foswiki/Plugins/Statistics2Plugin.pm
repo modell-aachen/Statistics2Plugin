@@ -134,7 +134,7 @@ sub jsonApproval {
                 }
                 if($revControlledTopic) {
                     my $isApproved = ($revControlledTopic->getRow( 'approved' ))?1:0;
-                    Foswiki::Func::writeWarning("Rev $rev is $isApproved lastUnapproved: ".($lastUnapproved || ''));
+                    #Foswiki::Func::writeWarning("Rev $rev is $isApproved lastUnapproved: ".($lastUnapproved || ''));
                     my ($revDate) = $revControlledTopic->{meta}->getRevisionInfo();
                     if($isApproved) {
                         if($lastUnapproved) {
@@ -147,8 +147,8 @@ sub jsonApproval {
                                 $approvalData->{DraftIntervals}{$diff}{"$web.$topic"} = $revControlledTopic->getWorkflowMeta('Revision')." \@$rev";
                                 $max--;
                             }
-                            $approvalData->{ApprovalDates}{$web}{$revDate} = () unless $approvalData->{ApprovalDates}{$web}{$revDate};
-                            push(@{$approvalData->{ApprovalDates}{$web}{$revDate}}, "$web.$topic $rev");
+                            $approvalData->{ApprovalDates}{$revDate} = () unless $approvalData->{ApprovalDates}{$revDate};
+                            push(@{$approvalData->{ApprovalDates}{$revDate}}, "$web.$topic $rev");
                         }
                         $lastUnapproved = undef;
                         $hadApproval = 1;
