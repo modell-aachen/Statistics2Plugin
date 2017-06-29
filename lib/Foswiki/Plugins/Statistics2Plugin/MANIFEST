@@ -1,0 +1,7 @@
+lib/Foswiki/Plugins/Statistics2Plugin.pm 0644
+lib/Foswiki/Plugins/Statistics2Plugin/Result.pm 0644
+data/System/Statistics2Plugin.txt 0644
+pub/System/Statistics2Plugin/statistics.js 0644
+pub/System/Statistics2Plugin/statistics.js.gz 0644
+pub/System/Statistics2Plugin/statistics.css 0644
+pub/System/Statistics2Plugin/statistics.css.gz 0644
