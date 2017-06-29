@@ -1,0 +1,34 @@
+div.statisticsButton {
+    background-color: #DDF;
+    border: 1px solid black;
+    padding: 2px;
+    cursor: pointer;
+}
+div.calContainer {
+    position: relative;
+    padding-left: 5px;
+    padding-right: 5px;
+}
+div.cal {
+    position: absolute;
+    border: 1px solid black;
+    background-color: blue;
+    bottom: 0px;
+    width: 10px;
+}
+div.histo {
+    position: relative;
+    border: 1px solid black;
+    background-color: blue;
+    bottom: 0px;
+    width: 10px;
+}
+div.hcontainer {
+    position: relative;
+    background-color: #FEF;
+}
+div.bar {
+    position: absolute;
+    border: 1px solid black;
+    background-color: yellow;
+}
